@@ -177,15 +177,21 @@ SpringBoot提供的自动配置依赖模块都以spring-boot-starter-为命名�
 
 所以今天来讲讲SpringBoot是如何实现自动配置的~
 
-### 1.1三个重要的注解
-
 #### `@SpringBootApplication`
 
-我们可以发现，在使用`main()`启动SpringBoot的时候，只有一个注解`@SpringBootApplication`
+`@SpringBootApplication`等同于下面三个注解：
 
-![只有一个@SpringBootApplication注解](https://segmentfault.com/img/remote/1460000018011538)
+- `@SpringBootConfiguration`
+- `@EnableAutoConfiguration`
+- `@ComponentScan`
 
-我们可以点击进去`@SpringBootApplication`注解中看看，可以发现有**三个注解**是比较重要的：
+其中`@EnableAutoConfiguration`是关键(启用自动配置)，内部实际上就去加载`META-INF/spring.factories`文件的信息，然后筛选出以`EnableAutoConfiguration`为key的数据，加载到IOC容器中，实现自动配置功能！
+
+![自动配置功能](https://segmentfault.com/img/remote/1460000018011548?w=1797&h=561)
+
+在使用`main()`启动SpringBoot的时候，只有一个注解`@SpringBootApplication`
+
+点击进去`@SpringBootApplication`注解中看看，可以发现有**三个注解**是比较重要的：
 
 ![SpringBootApplication注解详情](https://segmentfault.com/img/remote/1460000018011539?w=1292&h=304)
 
@@ -195,19 +201,18 @@ SpringBoot提供的自动配置依赖模块都以spring-boot-starter-为命名�
 
 所以，`Java3yApplication`类可以被我们当做是这样的：
 
-```
+```java
 @SpringBootConfiguration
 @EnableAutoConfiguration
 @ComponentScan
 public class Java3yApplication {
-
     public static void main(String[] args) {
         SpringApplication.run(Java3yApplication.class, args);
     }
 }
 ```
 
-### 1.2EnableAutoConfiguration
+#### @EnableAutoConfiguration
 
 我们知道SpringBoot可以帮我们减少很多的配置，也肯定听过“约定大于配置”这么一句话，那SpringBoot是怎么做的呢？其实靠的就是`@EnableAutoConfiguration`注解。
 
@@ -226,7 +231,7 @@ public class Java3yApplication {
 - `@AutoConfigurationPackage`：自动配置包
 - `@Import`：给IOC容器导入组件
 
-#### 1.2.1AutoConfigurationPackage
+1.2.1AutoConfigurationPackage
 
 网上将这个`@AutoConfigurationPackage`注解解释成**自动配置包**，我们也看看`@AutoConfigurationPackage`里边有什么：
 
@@ -234,7 +239,7 @@ public class Java3yApplication {
 
 我们可以发现，依靠的还是`@Import`注解，再点进去查看，我们发现重要的就是以下的代码：
 
-```
+```java
 @Override
 public void registerBeanDefinitions(AnnotationMetadata metadata,
         BeanDefinitionRegistry registry) {
@@ -257,7 +262,7 @@ public void registerBeanDefinitions(AnnotationMetadata metadata,
 
 - 简单理解：这二者**扫描的对象是不一样**的。
 
-#### 1.2.2回到Import
+1.2.2回到Import
 
 我们回到`@Import(AutoConfigurationImportSelector.class)`这句代码上，再点进去`AutoConfigurationImportSelector.class`看看具体的实现是什么：
 
@@ -286,18 +291,6 @@ public void registerBeanDefinitions(AnnotationMetadata metadata,
 有兴趣的同学可以去翻一下这些文件以及配置类哦：
 
 ![加载的配置类和文件的信息](https://segmentfault.com/img/remote/1460000018011547?w=1911&h=874)
-
-### 1.3总结
-
-`@SpringBootApplication`等同于下面三个注解：
-
-- `@SpringBootConfiguration`
-- `@EnableAutoConfiguration`
-- `@ComponentScan`
-
-其中`@EnableAutoConfiguration`是关键(启用自动配置)，内部实际上就去加载`META-INF/spring.factories`文件的信息，然后筛选出以`EnableAutoConfiguration`为key的数据，加载到IOC容器中，实现自动配置功能！
-
-![自动配置功能](https://segmentfault.com/img/remote/1460000018011548?w=1797&h=561)
 
 ## 自定义配置
 
@@ -624,8 +617,6 @@ public CommonDataSource commonDataSource() {
 小结
 这节课我们讲解了Spring注解中@Configuration和@Bean使用方法，在Springboot中集成其他三方框架时，这种写法使用的越来越普遍。如果一时无法转换思维，可对照xml文件的配置进行逐一切换过来，比如xml要定义一个bean，那么用注解就是@Bean注解一个方法。如果方法里面的参数还有其他的依赖，那就采用上面介绍的实战技巧依次追踪set对应的参数，并将其先通过@Bean实例化。
 
-## 其他
-
 ### 查看当前生效的配置
 
 SpringBoot默认提供了大量的自动配置，我们可以通过启动时添加--debug参数来查看当前的配置信息。
@@ -682,7 +673,892 @@ public class MyConfiguration {
 }
 ```
 
-##  
+# 常用注解
+
+### @Configuation
+
+> 1. @Configuration不可以是final类型；
+> 2. @Configuration不可以是匿名类；
+> 3. 嵌套的configuration必须是静态类。
+
+@Configuration可理解为用spring的时候xml里面的`<beans>`标签
+
+从`Spring3.0`，`@Configuration`用于定义配置类，可替换`xml`配置文件，被注解的类内部包含有一个或多个被`@Bean`注解的方法，这些方法将会被`AnnotationConfigApplicationContext`或`AnnotationConfigWebApplicationContext`类进行扫描，并用于构建`bean`定义，初始化`Spring`容器。
+
+```java
+@Configuration
+public class AppConfig {
+    @Bean
+    public MyBean myBean() {
+        // instantiate, configure and return bean ...
+    }
+}
+
+AnnotationConfigApplicationContext ctx = new AnnotationConfigApplicationContext();
+ctx.register(AppConfig.class);//加载配置类
+ctx.refresh();//刷新并创建容器
+MyBean myBean = ctx.getBean(MyBean.class);
+// use myBean ...
+```
+
+Spring Boot不是spring的加强版，所以@Configuration和@Bean同样可以用在普通的spring项目中，而不是Spring Boot特有的，只是在spring用的时候，注意加上扫包配置
+
+<context:component-scan base-package="com.xxx.xxx" />，普通的spring项目好多注解都需要扫包，才有用，有时候自己注解用的挺6，但不起效果，就要注意这点。
+
+Spring Boot则不需要，主要你保证你的启动Spring Boot main入口，在这些类的上层包就行
+@Configuration和@Bean的Demo类
+
+```java
+@Configuration  
+public class ExampleConfiguration {  
+    @Value("com.mysql.jdbc.Driver")  
+    private String driverClassName;  
+
+    @Value("jdbc://xxxx.xx.xxx/xx")  
+    private String driverUrl;  
+
+    @Value("${root}")  
+    private String driverUsername;  
+
+    @Value("123456")  
+    private String driverPassword;  
+
+    @Bean(name = "dataSource")  
+    public DataSource dataSource() {  
+        BasicDataSource dataSource = new BasicDataSource();  
+        dataSource.setDriverClassName(driverClassName);  
+        dataSource.setUrl(driverUrl);  
+        dataSource.setUsername(driverUsername);  
+        dataSource.setPassword(driverPassword);  
+        return dataSource;  
+    }  
+
+    @Bean  
+    public PlatformTransactionManager transactionManager() {  
+        return new DataSourceTransactionManager(dataSource());  
+    }  
+}
+```
+
+
+这样，在项目中
+
+```java
+@Autowired
+private DataSource dataSource;
+```
+
+的时候，这个dataSource就是我们在ExampleConfiguration中配的DataSource
+
+#### @Configuration配置spring并启动spring容器
+
+`@Configuration`标注在类上，相当于把该类作为spring的xml配置文件中的，作用为：配置spring容器(应用上下文)
+
+测试
+
+```java
+package config;
+
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+
+public class TestConfig {
+    public static void main(String[] args){
+        // @Configuration注解的spring容器加载方式，用AnnotationConfigApplicationContext替换ClassPathXmlApplicationContext
+        ApplicationContext context = new AnnotationConfigApplicationContext(TestConfiguration.class);
+
+        // 如果加载spring-context.xml文件：
+        // ApplicationContext context = new
+        // ClassPathXmlApplicationContext("spring-context.xml");
+    }
+}
+```
+
+测试结果如下：
+
+```java
+四月 03, 2018 10:12:52 上午 org.springframework.context.annotation.AnnotationConfigApplicationContext prepareRefresh
+信息: Refreshing org.springframework.context.annotation.AnnotationConfigApplicationContext@179d3b25: startup date [Tue Apr 03 10:12:52 CST 2018]; root of context hierarchy
+TestConfiguration 容器启动初始化...
+```
+
+### @ConditionalOnProperty
+
+这个注解能够控制某个configuration是否生效。具体操作是通过其两个属性name以及havingValue来实现的，其中name用来从application.properties中读取某个属性值，如果该值为空，则返回false;如果值不为空，则将该值与havingValue指定的值进行比较，如果一样则返回true;否则返回false。如果返回值为false，则该configuration不生效；为true则生效。
+
+### @Conponent
+
+`@Component`, `@Service`, `@Controller`, `@Repository`是spring注解，注解后可以被spring框架所扫描并注入到spring容器来进行管理
+`@Component`是通用注解，其他三个注解是这个注解的拓展，并且具有了特定的功能
+`@Repository`注解在持久层中，具有将数据库操作抛出的原生异常翻译转化为spring的持久层异常的功能。
+`@Controller`层是spring-mvc的注解，具有将请求进行转发，重定向的功能。
+`@Service`层是业务逻辑层注解，这个注解只是标注该类处于业务逻辑层。
+用这些注解对应用进行分层之后，就能将请求处理，义务逻辑处理，数据库操作处理分离出来，为代码解耦，也方便了以后项目的维护和开发。
+
+### @Bean
+
+@Bean可理解为用spring的时候xml里面的`<bean>`标签
+
+### @RestController 
+
+@RestController是一个组合注解，写在类上面，是组合了@ResponseBody和@Controller，默认了类中所有的方法都包含ResponseBody注解的一种简写形式，表示Controller 里面的方法都以 json 格式输出，不用再写什么 jackjson 配置的了！
+
+1)如果只是使用@RestController注解Controller，则Controller中的方法无法返回jsp页面，配置的视图解析器InternalResourceViewResolver则不起作用，返回的内容就是Return 里的内容（String/JSON）。
+例如：本来应该到success.jsp页面的，则其显示success.
+
+```java
+@RequestMapping(value = "/test")
+public String test(HttpServletRequest request, HttpServletResponse response){   				return "success";
+}
+```
+
+2)如果使用@RestController注解Controller，需要返回到指定页面，则需要配置视图解析器InternalResourceViewResolver，可以利用ModelAndView返回试图。
+
+```java
+@RequestMapping(value = "/test")
+public String test(HttpServletRequest request, HttpServletResponse response){   				return newModelAndView("success");
+}
+```
+
+3)如果使用@Controller注解Controller，如果需要返回JSON，XML或自定义mediaType内容到页面，则需要在对应的方法上加上@ResponseBody注解。
+
+```java
+@ResponseBody
+@RequestMapping(value = "/test")
+public String test(HttpServletRequest request, HttpServletResponse response){   
+    return "success";
+}
+```
+
+### @Controller
+
+以前在编写Controller方法的时候，需要开发者自定义一个Controller类实现Controller接口，实现handleRequest方法返回ModelAndView。并且需要在Spring配置文件中配置Handle，将某个接口与自定义Controller类做映射。
+
+这么做有个复杂的地方在于，一个自定义的Controller类智能处理一个单一请求。而在采用@Contoller注解的方式，可以使接口的定义更加简单，将**@Controller标记在某个类上，配合@RequestMapping注解，可以在一个类中定义多个接口**，这样使用起来更加灵活。
+
+**被@Controller标记的类实际上就是个SpringMVC Controller对象，它是一个控制器类，而@Contoller注解在org.springframework.stereotype包下。其中被@RequestMapping标记的方法会被分发处理器扫描识别，将不同的请求分发到对应的接口上。**
+
+### @Repository
+
+Spring 自 2.0 版本开始，陆续引入了一些注解用于简化 Spring 的开发。@Repository注解便属于最先引入的一批，它用于将数据访问层 (DAO 层 ) 的类标识为 Spring Bean。具体只需将该注解标注在 DAO类上即可。同时，为了让 Spring 能够扫描类路径中的类并识别出 @Repository 注解，需要在 XML 配置文件中启用Bean 的自动扫描功能，这可以通过`<context:component-scan/>`实现
+
+为什么只能标注在 DAO 类上呢？
+
+这是因为该注解的作用不只是将类识别为Bean，同时它还能将所标注的类中抛出的数据访问异常封装为 Spring 的数据访问异常类型。 Spring本身提供了一个丰富的并且是与具体的数据访问技术无关的数据访问异常结构，用于封装不同的持久层框架抛出的异常，使得异常独立于底层的框架。
+
+### @RequestMapping 
+
+是一个用来处理请求地址映射的注解，可用于类或方法上。用于类上，表示类中的所有响应请求的方法都是以该地址作为父路径；用于方法上，表示在类的父路径下追加方法上注解中的地址将会访问到该方法。
+
+### @Responsebody 
+
+注解表示该方法的返回的结果直接写入 HTTP 响应正文（ResponseBody）中，一般在异步获取数据时使用；
+在使用 @RequestMapping 后，返回值通常解析为跳转路径，加上 @Responsebody 后返回结果不会被解析为跳转路径，而是直接写入HTTP 响应正文中。例如，异步获取 json 数据，加上 @Responsebody 注解后，就会直接返回 json 数据。
+
+```java
+@RequestMapping(value = "person/login", method = RequestMethod.GET)
+@ResponseBody
+public Person login(@RequestBody Person person) {   // 将请求中的 datas 写入 Person 对象中
+    return person;    // 不会被解析为跳转路径，而是直接写入 HTTP 响应正文中
+}
+```
+
+### @GetMapping
+
+用于将HTTP get请求映射到特定处理程序的方法注解
+是一个组合注解，是@RequestMapping(method = RequestMethod.GET)的缩写
+
+### @PostMapping
+
+用于将HTTP post请求映射到特定处理程序的方法注解
+是一个组合注解，是@RequestMapping(method = RequestMethod.POST)的缩写。
+
+在Spring 4.3以后，引入了@GetMapping、@PostMapping、@PutMapping、@DeleteMapping和@PatchMapping，一共5个注解。
+
+**注：**
+
+请求资源应该使用GET;
+添加资源应该使用POST;
+更新资源应该使用PUT;
+删除资源应该使用DELETE.
+
+### @Slf4j
+
+- slf4j是一个日志标准，使用它可以完美的桥接到具体的日志框架，必要时可以简便的更换底层的日志框架，而不需要关心具体的日志框架的实现（slf4j-simple、logback等）。
+- 每次写新的类，就需要重新写logger，麻烦，可以使用@Slf4j注解简化
+
+### @PostConstruct
+
+Spring的@PostConstruct注解在方法上，表示此方法是在Spring实例化该Bean之后马上执行此方法，之后才会去实例化其他Bean，并且一个Bean中@PostConstruct注解的方法可以有多个。
+
+### @RequestParam
+
+看下面一段代码：
+
+```
+http://localhost:8080/springmvc/hello/101?param1=10&param2=20
+```
+
+根据上面的这个URL，你可以用这样的方式来进行获取
+
+```java
+public String getDetails(
+    @RequestParam(value="param1", required=true) String param1,
+        @RequestParam(value="param2", required=false) String param2){
+}
+```
+
+> @RequestParam 支持下面四种参数
+
+- defaultValue 如果本次请求没有携带这个参数，或者参数为空，那么就会启用默认值
+- name 绑定本次参数的名称，要跟URL上面的一样
+- required 这个参数是不是必须的
+- value 跟name一样的作用，是name属性的一个别名
+
+### @ApiOperation
+
+不是spring自带的注解
+
+是swagger里的 com.wordnik.swagger.annotations.ApiOperation;
+
+@ApiOperation和@ApiParam为添加的API相关注解，个参数说明如下： 
+
+> @ApiOperation(value = “接口说明”, httpMethod = “接口请求方式”, response = “接口返回参数类型”, notes = “接口发布说明”；
+
+> @ApiParam(required = “是否必须参数”, name = “参数名称”, value = “参数具体描述”
+
+### @Async
+
+@Async注解标记的方法，称为异步方法，它会在调用方的当前线程之外的独立的线程中执行，其实就相当于我们自己new Thread(()-> System.out.println("hello world !"))这样在另一个线程中去执行相应的业务逻辑。
+
+####  @Async注解使用条件：
+
+1. @Async注解一般用在类的方法上，如果用在类上，那么这个类所有的方法都是异步执行的；
+2. 所使用的@Async注解方法的类对象应该是Spring容器管理的bean对象；
+3. 调用异步方法类上需要配置上注解@EnableAsync
+
+#### @EnableAsync
+
+EnableAsync注解的意思是可以异步执行，就是开启多线程的意思。可以标注在方法、类上。
+
+SpringBoot 提供了注解 `@EnableAsync` + `@Async` 实现方法的异步调用。使用方法超级简单，在启动类上加上 `@EnableAsync` 注解开启项目的异步调用功能，再在需异步调用的方法上加上注解 `@Async` 即可实现方法的异步调用。
+
+### @scheduled注解作用
+
+用来开启定时任务
+
+#### cron：通过表达式来配置任务执行时间
+
+**cron表达式详解**
+
+表达式总共七个部分，含义为：“秒 分 时 日期 月 星期几 [年]”
+其中年不是必填项，所以Cron表达式可能也只有六部分
+
+![image-20200110105426450](/Users/wangchong/Library/Application Support/typora-user-images/image-20200110105426450.png)
+
+#### 特殊字符
+
+![image-20200110105508531](/Users/wangchong/Library/Application Support/typora-user-images/image-20200110105508531.png)
+
+#### 示例
+
+```ruby
+  每隔5秒执行一次：*/5 * * * * ?
+  每隔1分钟执行一次：0 */1 * * * ?
+  每天23点执行一次：0 0 23 * * ?
+  每天凌晨1点执行一次：0 0 1 * * ?
+  每月1号凌晨1点执行一次：0 0 1 1 * ?
+  每月最后一天23点执行一次：0 0 23 L * ?
+  每周星期天凌晨1点实行一次：0 0 1 ? * L
+  在26分、29分、33分执行一次：0 26,29,33 * * * ?
+  每天的0点、13点、18点、21点都执行一次：0 0 0,13,18,21 * * ?
+	0 0 10,14,16 * * ? 每天上午10点，下午2点，4点
+	0 0/30 9-17 * * ?   朝九晚五工作时间内每半小时
+	0 0 12 ? * WED 表示每个星期三中午12点
+	“0 0 12 * * ?” 每天中午12点触发 
+	“0 15 10 ? * *” 每天上午10:15触发
+	“0 15 10 * * ?” 每天上午10:15触发
+	“0 15 10 * * ? *” 每天上午10:15触发
+	“0 15 10 * * ? 2005” 2005年的每天上午10:15触发
+	“0 * 14 * * ?” 在每天下午2点到下午2:59期间的每1分钟触发
+	“0 0/5 14 * * ?” 在每天下午2点到下午2:55期间的每5分钟触发
+	“0 0/5 14,18 * * ?” 在每天下午2点到2:55期间和下午6点到6:55期间的每5分钟触发
+	“0 0-5 14 * * ?” 在每天下午2点到下午2:05期间的每1分钟触发
+	“0 10,44 14 ? 3 WED” 每年三月的星期三的下午2:10和2:44触发
+	“0 15 10 ? * MON-FRI” 周一至周五的上午10:15触发
+	“0 15 10 15 * ?” 每月15日上午10:15触发
+	“0 15 10 L * ?” 每月最后一日的上午10:15触发
+	“0 15 10 ? * 6L” 每月的最后一个星期五上午10:15触发
+	“0 15 10 ? * 6L 2002-2005” 2002年至2005年的每月的最后一个星期五上午10:15触发
+	“0 15 10 ? * 6#3” 每月的第三个星期五上午10:15触发 
+	0 0 10,14,16 * * ? 每天上午10点，下午2点，4点 
+	0 0/30 9-17 * * ? 朝九晚五工作时间内每半小时 
+	0 0 12 ? * WED 表示每个星期三中午12点 
+	"0 0 12 * * ?" 每天中午12点触发 
+	"0 15 10 ? * *" 每天上午10:15触发 
+	"0 15 10 * * ?" 每天上午10:15触发 
+	"0 15 10 * * ? *" 每天上午10:15触发 
+	"0 15 10 * * ? 2005" 2005年的每天上午10:15触发 
+	"0 * 14 * * ?" 在每天下午2点到下午2:59期间的每1分钟触发 
+	"0 0/5 14 * * ?" 在每天下午2点到下午2:55期间的每5分钟触发 
+	"0 0/5 14,18 * * ?" 在每天下午2点到2:55期间和下午6点到6:55期间的每5分钟触发 
+	"0 0-5 14 * * ?" 在每天下午2点到下午2:05期间的每1分钟触发 
+	"0 10,44 14 ? 3 WED" 每年三月的星期三的下午2:10和2:44触发 
+	"0 15 10 ? * MON-FRI" 周一至周五的上午10:15触发 
+	"0 15 10 15 * ?" 每月15日上午10:15触发 
+	"0 15 10 L * ?" 每月最后一日的上午10:15触发 
+	"0 15 10 ? * 6L" 每月的最后一个星期五上午10:15触发 
+	"0 15 10 ? * 6L 2002-2005" 2002年至2005年的每月的最后一个星期五上午10:15触发 
+	"0 15 10 ? * 6#3" 每月的第三个星期五上午10:15触发
+```
+
+## @Autowired、@Resource
+
+> 注入有4种模式，byName、byType、constructor、autodectect
+
+功能上是一样的（DI注解），DI注解其实有两套：
+
+- Spring官方的注解：@Autowired注解
+
+- JavaEE的注解：@Resource注解
+
+共同点：都需要配置DI注解解析器
+
+```xml
+<!-- DI注解解析器 -->
+<context:annotation-config/>
+```
+
+### @Autowired
+
+@Autowired为Spring提供的注解，需要导入包org.springframework.beans.factory.annotation.Autowired;只按照byType注入。
+
+@Autowired注解是按照类型（byType）装配依赖对象，默认情况下它要求依赖对象必须存在，如果允许null值，可以设置它的required属性为false。如果我们想使用按照名称（byName）来装配，可以结合@Qualifier注解一起使用。(通过类型匹配找到多个candidate,在没有@Qualifier、@Primary注解的情况下，会使用对象名作为最后的fallback匹配)
+
+
+规则如下
+
+1. Spring先去容器中寻找对应类型的bean，若找不到一个bean，会抛出异常
+2. 若找到一个类型的bean，则注入bean。若该类型的bean有多个，则扫描字段名进行名字匹配
+
+特例：
+
+```java
+@Autowired
+@Qualifier("userJdbcImps")
+private UserRepository userRepository;
+```
+
+若有多个UserRepository 类型的bean，可以指定bean的名称，名称为userJdbcImps，装配到userRepository中
+
+```java
+@Autowired（required = false）
+NewsService newsService;
+```
+
+若找不到bean时不会抛出异常
+
+### @Resource
+
+@Resource默认按照ByName自动注入，由J2EE提供，需要导入包javax.annotation.Resource。@Resource有两个重要的属性：name和type，而Spring将@Resource注解的name属性解析为bean的名字，而type属性则解析为bean的类型。所以，如果使用name属性，则使用byName的自动注入策略，而使用type属性时则使用byType自动注入策略。如果既不制定name也不制定type属性，这时将通过反射机制使用byName自动注入策略。
+
+@Resource装配顺序：
+
+1. 如果同时指定了name和type，则从Spring上下文中找到唯一匹配的bean进行装配，找不到则抛出异常。
+2. 如果指定了name，则从上下文中查找名称（id）匹配的bean进行装配，找不到则抛出异常。
+3. 如果指定了type，则从上下文中找到类似匹配的唯一bean进行装配，找不到或是找到多个，都会抛出异常。
+4. 如果既没有指定name，又没有指定type，则自动按照byName方式进行装配；如果没有匹配，则回退为一个原始类型进行匹配，如果匹配则自动装配。
+
+@Resource的作用相当于@Autowired，只不过@Autowired按照byType自动注入。
+
+### @EnableCaching
+
+Spring 3.1 引入了激动人心的基于注释（annotation）的缓存（cache）技术，它本质上不是一个具体的缓存实现方案（例如 EHCache 或者 OSCache），而是一个对缓存使用的抽象，通过在既有代码中添加少量它定义的各种 annotation，即能够达到缓存方法的返回对象的效果。
+
+Spring 的缓存技术还具备相当的灵活性，不仅能够使用 SpEL（Spring Expression Language）来定义缓存的 key 和各种 condition，还提供开箱即用的缓存临时存储方案，也支持和主流的专业缓存例如 EHCache 集成。
+
+```java
+import org.springframework.cache.annotation.Cacheable;
+ 
+public class Book {
+	/**
+	 * value : 缓存的名字  ,key ： 缓存map中的key
+	 * @param id
+	 * @return
+	 */
+    @Cacheable(value = { "sampleCache" },key="#id")
+    public String getBook(int id) {
+        System.out.println("Method executed..");
+        if (id == 1) {
+            return "Book 1";
+        } else {
+            return "Book 2";
+        }
+    }
+}
+```
+
+@Cacheable(value=“sampleCache”)，这个注释的意思是，当调用这个方法的时候，会从一个名叫 sampleCache 的缓存(缓存本质是一个map)中查询key为id的值，如果不存在，则执行实际的方法（即查询数据库等服务逻辑），并将执行的结果存入缓存中，否则返回缓存中的对象。这里的缓存中的 key 就是参数 id，value 就是 返回的String 对象
+
+
+#### cache配置类
+
+
+```java
+package com.learn.frame.spring.cache;
+
+import java.util.Arrays;
+
+import org.springframework.cache.CacheManager;
+import org.springframework.cache.annotation.EnableCaching;
+import org.springframework.cache.concurrent.ConcurrentMapCache;
+import org.springframework.cache.support.SimpleCacheManager;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+ /**
+   * spring cache 缓存的使用
+   */
+   @Configuration
+   @EnableCaching
+   public class CachingConfig {
+   @Bean
+   public Book book() {
+       return new Book();
+   }
+
+   @Bean
+   public CacheManager cacheManager() {
+       SimpleCacheManager cacheManager = new SimpleCacheManager();
+       cacheManager.setCaches(Arrays.asList(new ConcurrentMapCache("sampleCache")));//注册名为sampleCache的缓存
+       return cacheManager;
+   }
+public static void main(String[] args) {
+         AnnotationConfigApplicationContext ctx = new AnnotationConfigApplicationContext(); 
+        ctx.register(CachingConfig.class);
+        ctx.refresh();
+        Book book = ctx.getBean(Book.class);        
+        // calling getBook method first time.
+        System.out.println(book.getBook(1));
+        // calling getBook method second time. This time, method will not
+        // execute.
+        System.out.println(book.getBook(1));
+        // calling getBook method third time with different value.
+        System.out.println(book.getBook(2));
+        ctx.close();
+}
+}
+```
+
+@EnableCaching
+
+注解是spring framework中的注解驱动的缓存管理功能。自spring版本3.1起加入了该注解。如果你使用了这个注解，那么你就不需要在XML文件中配置cache manager了，等价于 `<cache:annotation-driven/>` 。能够在服务类方法上标注@Cacheable
+
+CacheManager ： 管理Cache对象
+
+Cache ： 用合适的数据结构存储数据（上述例子使用ConcurrentMapCache map结构存储数据对象）
+
+上面的java config和下面的xml配置文件是等效的
+
+```xml
+<beans>
+     <cache:annotation-driven/>
+     <bean id="book" class="Book"/>
+     <bean id="cacheManager" class="org.springframework.cache.support.SimpleCacheManager">
+         <property name="caches">
+             <set>
+                 <bean class="org.springframework.cache.concurrent.ConcurrentMapCacheFactoryBean">
+                     <property name="name" value="sampleCache"/>
+                 </bean>
+             </set>
+         </property>
+     </bean>
+ </beans>
+```
+
+
+定义了一个缓存管理器SimpleCacheManager 并设置名称为sampleCache的缓存，@Cachable的value属性要和此对应。
+
+测试输出结果
+
+> Method executed..
+> Book 1
+> Book 1
+> Method executed..
+> Book 2
+
+## 校验
+
+### @Valid+BindingResult进行controller参数校验
+
+由于controller是调用的第一层，经常参数校验将在这里完成，常见有非空校验、类型校验等，常见写法为以下伪代码：
+
+```java
+public void round(Object a){
+
+  if(a.getLogin() == null){
+     return "手机号不能为空！";
+   }
+}
+```
+
+但是调用对象的位置会有很多，而且手机号都不能为空，那么我们会想到把校验方法抽出来，避免重复的代码。但有框架支持我们通过注解的方式进行参数校验。
+
+先立个场景，为往动物园添加动物，动物对象如下，时间节点大概在3030年，我们认为动物可登陆动物专用的系统，所以有password即自己的登录密码。
+
+```java
+public class Animal {
+
+    private String name;
+
+    private Integer age;
+
+    private String password;
+
+    private Date birthDay;
+
+}
+```
+
+调用创建动物的controller层如下，简洁明了，打印下信息后直接返回。
+
+```java
+@RestController
+@RequestMapping("/animal")
+public class AnimalController {
+   @PostMapping
+    public Animal createAnimal(@RequestBody Animal animal){
+        logger.info(animal.toString());
+        return animal;
+    }
+}
+```
+
+伪造Mvc调用的测试类。
+
+```java
+@RunWith(SpringRunner.class)
+@SpringBootTest
+public class TestAnimal {
+    private final static Logger logger = LoggerFactory.getLogger(TestAnimal.class);
+   @Autowired
+    private WebApplicationContext wac;
+    private MockMvc mockMvc;
+    @Before
+    public void initMock(){
+        mockMvc = MockMvcBuilders.webAppContextSetup(wac).build();
+    }
+    @Test
+    public void createAnimal() throws Exception {
+        String content = "{\"name\":\"elephant\",\"password\":null,\"birthDay\":"+System.currentTimeMillis()+"}";
+        String result = mockMvc.perform(MockMvcRequestBuilders.post("/animal")
+                .content(content)
+                .contentType(MediaType.APPLICATION_JSON_UTF8))
+                .andExpect(MockMvcResultMatchers.status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        logger.info(result);
+    }
+}
+```
+
+以上代码基于搭建的springboot项目，想搭建的同学可以参考姊妹搭建篇 https://blog.csdn.net/FU250/article/details/80208261
+
+代码分析，日期格式的参数建议使用时间戳传递，以上birthDay传递 "2018-05-08 20:00:00"，将会抛出日期转换异常，感兴趣的同学可以试试。
+
+由于密码很重要，现在要求密码为必填，操作如下，添加@NotBlank注解到password上：
+
+```java
+@NotBlank
+private String password;
+```
+
+但光加校验注解是不起作用的，还需要在方法参数上添加@Valid注解，如下：
+
+```java
+@Valid @RequestBody Animal animal
+```
+
+此时执行测试方法，抛出异常，返回状态为400：
+
+```java
+java.lang.AssertionError: Status 
+Expected :200
+Actual   :400
+ <Click to see difference>
+	at org.springframework.test.util.AssertionErrors.fail(AssertionErrors.java:54)
+	at org.springframework.test.util.AssertionErrors.assertEquals(AssertionErrors.java:81)
+```
+
+说明对password的非空校验已经生效了，直接抛出异常。如果不想抛出异常，想返回校验信息给前端，这个时候就需要用到BindingResult了，修改创建动物的方法，添加BindingResult参数：
+
+```java
+@PostMapping
+
+
+
+    public Animal createAnimal(@Valid @RequestBody Animal animal, BindingResult bindingResult){
+        if (bindingResult.hasErrors()){
+            bindingResult.getAllErrors().forEach(o ->{
+                FieldError error = (FieldError) o;
+	              logger.info(error.getField() + ":" + error.getDefaultMessage());
+            });
+        }
+        logger.info(animal.toString());
+        return animal;
+    }
+```
+
+此时，执行测试，可以看到日志中的错误信息：
+
+```html
+2018-05-09 00:59:37.453  INFO 14044 --- [           main] c.i.s.d.web.controller.AnimalController  : password:may not be empty
+```
+
+为了满足我们编码需要我们需要进行代码改造，1.不能直接返回animal。2.返回的提示信息得是用户可读懂的信息。
+
+controller方法改造如下，通过Map对象传递请求成功后的信息或错误提示信息。
+
+```java
+		@PostMapping
+    public Map<String,Object> createAnimal(@Valid @RequestBody Animal animal, BindingResult bindingResult){
+        logger.info(animal.toString());
+        Map<String,Object> result = new HashMap<>();
+        if (bindingResult.hasErrors()){
+            FieldError error = (FieldError) bindingResult.getAllErrors().get(0);
+            result.put("code","400");//错误编码400
+            result.put("message",error.getDefaultMessage());//错误信息
+				    return result;
+        }
+        result.put("code","200");//成功编码200
+        result.put("data",animal);//成功返回数据
+        return result;
+    }
+```
+
+返回的密码提示信息如下：
+
+```java
+@NotBlank(message = "密码不能为空！")
+
+
+
+private String password;
+```
+
+执行测试方法，返回结果
+
+```java
+com.imooc.security.demo.TestAnimal       : {"code":"400","message":"密码不能为空！"}
+```
+
+最后贴一个，设置password值返回成功的信息
+
+```java
+com.imooc.security.demo.TestAnimal       : {"code":"200","data":{"name":"elephant","age":null,"password":"lalaland","birthDay":1525799768955}}
+```
+
+
+## Java
+
+### StopWatch类
+
+可以获得任务执行时间
+
+```java
+@Test
+public void test1() throws InterruptedException {
+        StopWatch stopWatch =new StopWatch();
+        stopWatch.start();
+        int sum=0;
+        for(int i=0;i<100000;i++){
+            sum+=i;
+        }
+        Thread.sleep(2000);
+        stopWatch.stop();
+        System.out.println("总计是："+sum);
+        System.out.println("耗时："+stopWatch.getTotalTimeMillis()+"毫秒");
+        System.out.println("耗时："+stopWatch.getTotalTimeSeconds()+"秒");
+       //打印一份格式化好的汇总统计信息
+        System.out.println(stopWatch.prettyPrint());
+    }
+```
+
+> 总计是：704982704
+> 耗时：2004毫秒
+> 耗时：2.004秒
+
+### 双冒号
+
+运算就是 java 中的[方法引用]。 [方法引用]格式为：类名::方法名。
+
+注意是方法名，方法名，方法名！重要的事情说三遍！后面没有括号“()”的。
+
+为啥不要括号 ?
+
+因为这样的是式子并不代表一定会调用这个方法。这种式子一般是用作Lambda表达式，Lambda有所谓懒加载嘛，不要括号就是说，看情况调用方法。
+
+#### 使用范例
+
+方法调用
+
+```java
+person -> person.getAge();
+可以替换成
+Person::getAge
+
+x -> System.out.println(x)
+可以替换成
+System.out::println
+out是一个PrintStream类的对象，println是该类的方法，依据x的类型来重载方法
+
+创建对象
+
+() -> new ArrayList<>();
+可以替换为
+ArrayList::new
+```
+
+### AtomicLong
+
+#### **AtomicLong介绍**
+
+AtomicLong是作用是对长整形进行原子操作。
+在32位操作系统中，64位的long 和 double 变量由于会被JVM当作两个分离的32位来进行操作，所以不具有原子性。而使用AtomicLong能让long的操作保持原子型。
+
+#### **AtomicLong的几个常用方法**
+
+- 创建具有初始值 0 的新 AtomicLong
+
+```java
+AtomicLong atomicLong = new AtomicLong();
+```
+
+- 创建具有给定初始值的新 AtomicLong。        
+
+```java
+AtomicLong atomicLong1 = new AtomicLong(10);
+```
+
+- addAndGet()方法：以原子方式将给定值添加到当前值，先加上特定的值，再获取结果
+
+```java
+AtomicLong atomicLong = new AtomicLong(3);
+atomicLong.addAndGet(5)
+```
+
+- getAndAdd()方法：先获取当前值再加上特定的值
+
+```java
+atomicLong5.getAndAdd(5);
+```
+
+- compareAndSet()方法：如果当前值 == 预期值，则以原子方式将该值设置为给定的更新值
+
+```java
+AtomicLong atomicLong3 = new AtomicLong(10);
+atomicLong3.compareAndSet(10,15);
+```
+
+- decrementAndGet()方法：以原子方式将当前值减 1,先减去1再获取值
+
+- getAndDecrement()方法：先获取当前值再减1
+- getAndIncrement()方法：先获取当前值再加1
+- incrementAndGet()方法：先加1再获取当前值
+- getAndSet()方法：先获取当前值再设置新的值
+
+```java
+atomicLong.getAndSet(20);
+```
+
+### Stream.map()
+
+如果需要将流中的元素映射到另一个流中，可以使用map 方法。方法签名：
+
+```java
+<R> Stream<R> map(Function<? super T, ? extends R> mapper);
+```
+
+
+该接口需要一个Function 函数式接口参数，可以将当前流中的T类型数据转换为另一种R类型的流。 
+
+复习Function接口
+
+java.util.stream.Function 函数式接口，其中唯一的抽象方法为：
+
+```java
+R apply(T t);
+```
+
+
+这可以将一种T类型转换成为R类型，而这种转换的动作，就称为“映射”。
+
+基本使用
+
+```java
+import java.util.stream.Stream;
+/*
+    Stream流中的常用方法_map:用于类型转换
+    如果需要将流中的元素映射到另一个流中，可以使用map方法.
+    <R> Stream<R> map(Function<? super T, ? extends R> mapper);
+    该接口需要一个Function函数式接口参数，可以将当前流中的T类型数据转换为另一种R类型的流。
+    Function中的抽象方法:
+        R apply(T t);
+ */
+public class StreamMap {
+    public static void main(String[] args) {
+        //获取一个String类型的Stream流
+        Stream<String> stream = Stream.of("1", "2", "3", "4");
+        //使用map方法,把字符串类型的整数,转换(映射)为Integer类型的整数
+        Stream<Integer> stream2 = stream.map((String s)->{
+            return Integer.parseInt(s);
+        });
+        //遍历Stream2流
+        stream2.forEach(i-> System.out.println(i));
+    }
+}
+```
+
+### POJO（Plain Ordinary Java Object）简单的Java对象
+
+实际就是普通JavaBeans，是为了避免和EJB混淆所创造的简称。
+使用POJO名称是为了避免和EJB混淆起来, 而且简称比较直接. 其中有一些属性及其getter setter方法的类,没有业务逻辑，有时可以作为VO(value -object)或dto(Data Transform Object)来使用.当然,如果你有一个简单的运算属性也是可以的,但不允许有业务方法,也不能携带有connection之类的方法。
+
+### POJO与javabean的区别
+
+POJO 和JavaBean是我们常见的两个关键字，一般容易混淆，POJO全称是Plain Ordinary Java Object / Pure Old Java Object，中文可以翻译成：普通Java类，具有一部分getter/setter方法的那种类就可以称作POJO，但是JavaBean则比 POJO复杂很多， Java Bean 是可复用的组件，对 Java Bean 并没有严格的规范，理论上讲，任何一个 Java 类都可以是一个 Bean 。但通常情况下，由于 Java Bean 是被容器所创建（如 Tomcat) 的，所以 Java Bean 应具有一个无参的构造器，另外，通常 Java Bean 还要实现 Serializable 接口用于实现 Bean 的持久性。 Java Bean 是不能被跨进程访问的。
+
+JavaBean是一种组件技术，就好像你做了一个扳子，而这个扳子会在很多地方被拿去用，这个扳子也提供多种功能(你可以拿这个扳子扳、锤、撬等等)，而这个扳子就是一个组件。
+
+一般在web应用程序中建立一个数据库的映射对象时，我们只能称它为POJO。POJO(Plain Old Java Object)这个名字用来强调它是一个普通java对象，而不是一个特殊的对象，其主要用来指代那些没有遵从特定的Java对象模型、约定或框架（如EJB）的Java对象。理想地讲，一个POJO是一个不受任何限制的Java对象（除了Java语言规范）。JavaBean 是一种JAVA语言写成的可重用组件。
+
+JavaBean符合一定规范编写的Java类，不是一种技术，而是一种规范。大家针对这种规范，总结了很多开发技巧、工具函数。符合这种规范的类，可以被其它的程序员或者框架使用。它的方法命名，构造及行为必须符合特定的约定
+
+1、所有属性为private。
+
+2、这个类必须有一个公共的缺省构造函数。即是提供无参数的构造器。
+
+3、这个类的属性使用getter和setter来访问，其他方法遵从标准命名规范。
+
+4、这个类应是可序列化的。实现serializable接口。
+
+- 因为这些要求主要是靠约定而不是靠实现接口，所以许多开发者把JavaBean看作遵从特定命名约定的POJO。
+- POJO其实是比javabean更纯净的简单类或接口。POJO严格地遵守简单对象的概念，而一些JavaBean中往往会封装一些简单逻辑。
+- POJO主要用于数据的临时传递，它只能装载数据， 作为数据存储的载体，而不具有业务逻辑处理的能力。
+- Javabean虽然数据的获取与POJO一样，但是javabean当中可以有其它的方法。
+- entity（实体类）：一般的实体类对应一个数据表，其中的属性对应数据表中的字段。 
+
+#### 各种对象
+
+ - PO: POJO在持久层的体现，对POJO持久化后就成了PO。PO更多的是跟数据库设计层面相关，一般PO与数据表对应，一个PO就是对应数据表的一条记录。 
+  - DAO: PO持久化到数据库是要进行相关的数据库操作的(CRUQ)，这些对数据库操作的方法会统一放到一个Java对象中，这就是DAO。
+
+- BO: POJO在业务层的体现，对于业务操作来说，更多的是从业务上来包装对象，如一个User的BO，可能包括name, age, sex, privilege, group等，这些属性在数据库中可能会在多张表中，因为每一张表对应一个PO，而我们的BO需要这些PO组合起来(或说重新拼装)才能成为业务上的一个完整对象。
+
+ - VO(Value Object/View Object): POJO在表现层的体现。 当我们处理完数据时，需要展现时，这时传递到表现层的POJO就成了VO。它就是为了展现数据时用的。
+
+ - DTO(Data Transfer Object): POJO在系统间传递时。当我们需要在两个系统间传递数据时，一种方式就是将POJO序列化后传递，这个传递状态的POJO就是DTO。
+
+ - EJB(Enterprise JavaBean): 我认为它是一组”功能”JavaBean的集合。上面说了JavaBean是实现了一种规范的Java对象。这里说EJB是一组JavaBean，的意思是这一组JavaBean组合起来实现了某个企业组的业务逻辑。这里的一组JavaBean不是乱组合的，它们要满足能实现某项业务功能的搭配。找个比方，对于一身穿着来说，包括一顶帽子，一件衣服，一条裤子，两只鞋,这穿着就是EJB.
 
 # Spring MVC
 
@@ -907,12 +1783,7 @@ public class WelcomeController {
 
 这种方式对业务代码没有任何侵入，**它有效的实现松耦合**，大家都知道紧耦合的代码是业务发展的噩梦；同时，Spring IOC提供的远不止这些，如通过单例减少创建无用的对象，通过延迟加载优化初始化成本等
 
-## 依赖注入（DI）
-
-Spring Application Framework的核心就是其IOC容器，**该容器的工作包括对应用程序的对象（Bean）的实例化，初始化，装配**以及在对象的整个生命周期中提供其他的Spring功能。
-过程图如下：
-![在这里插入图片描述](https://img-blog.csdnimg.cn/20200522115959439.PNG?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L2MxNzc2MTY3MDEy,size_16,color_FFFFFF,t_70)
-![在这里插入图片描述](https://img-blog.csdnimg.cn/20200522120047658.PNG?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L2MxNzc2MTY3MDEy,size_16,color_FFFFFF,t_70)
+### 依赖注入（DI）
 
 #### DI的好处
 
@@ -948,26 +1819,6 @@ Authentication 权限、Caching 缓存、Context passing 内容传递、Error ha
 #### 原理
 
 AOP是面向切面编程，是通过动态代理的方式为程序添加统一功能，集中解决一些公共问题。
-
-**名词**
-
-（1）切面（Aspect）：被抽取的公共模块，可能会横切多个对象。 在Spring AOP中，切面可以使用通用类（基于模式的风格） 或者在普通类中以 @AspectJ 注解来实现。
-
-（2）连接点（Join point）：指方法，在Spring AOP中，一个连接点 总是 代表一个方法的执行。 
-
-（3）通知（Advice）：在切面的某个特定的连接点（Join point）上执行的动作。通知有各种类型，其中包括“around”、“before”和“after”等通知。许多AOP框架，包括Spring，都是以拦截器做通知模型， 并维护一个以连接点为中心的拦截器链。
-
-（4）切入点（Pointcut）：切入点是指 我们要对哪些Join point进行拦截的定义。通过切入点表达式，指定拦截的方法，比如指定拦截add*、search*。
-
-（5）引入（Introduction）：（也被称为内部类型声明（inter-type declaration））。声明额外的方法或者某个类型的字段。Spring允许引入新的接口（以及一个对应的实现）到任何被代理的对象。例如，你可以使用一个引入来使bean实现 IsModified 接口，以便简化缓存机制。
-
-（6）目标对象（Target Object）： 被一个或者多个切面（aspect）所通知（advise）的对象。也有人把它叫做 被通知（adviced） 对象。 既然Spring AOP是通过运行时代理实现的，这个对象永远是一个 被代理（proxied） 对象。
-
-（7）织入（Weaving）：指把增强应用到目标对象来创建新的代理对象的过程。Spring是在运行时完成织入。
-
-切入点（pointcut）和连接点（join point）匹配的概念是AOP的关键，这使得AOP不同于其它仅仅提供拦截功能的旧技术。 切入点使得定位通知（advice）可独立于OO层次。 例如，一个提供声明式事务管理的around通知可以被应用到一组横跨多个对象中的方法上（例如服务层的所有业务操作）。
-
-![img](https://img-blog.csdn.net/20180708154818891?watermark/2/text/aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L2E3NDUyMzM3MDA=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70)
 
 ### 静态代理
 
@@ -2005,11 +2856,11 @@ ThreadLocal会为每一个线程提供一个独立的变量副本，从而隔离
 
 （5）观察者模式：定义对象键一种一对多的依赖关系，当一个对象的状态发生改变时，所有依赖于它的对象都会得到通知被制动更新，如Spring中listener的实现--ApplicationListener。
 
-## Spring事务
+### Spring事务的实现方式和实现原理
 
 Spring事务的本质其实就是数据库对事务的支持，没有数据库的事务支持，spring是无法提供事务功能的。真正的数据库层的事务提交和回滚是通过binlog或者redo log实现的。
 
-**Spring事务的种类：**
+**（1）Spring事务的种类：**
 
 spring支持编程式事务管理和声明式事务管理两种方式：
 
@@ -2039,7 +2890,7 @@ spring事务的传播行为说的是，当多个事务同时存在的时候，sp
 >
 > ⑦ PROPAGATION_NESTED：如果当前存在事务，则在嵌套事务内执行。如果当前没有事务，则按REQUIRED属性执行。
 
-**（3）Spring中的事务隔离级别：**
+**（3）Spring中的隔离级别：**
 
 > ① ISOLATION_DEFAULT：这是个 PlatfromTransactionManager 默认的隔离级别，使用数据库默认的事务隔离级别。
 >
@@ -2066,6 +2917,26 @@ Spring 提供了以下5种标准的事件：
 （5）请求处理事件（RequestHandledEvent）：在Web应用中，当一个http请求（request）结束触发该事件。
 
 如果一个bean实现了ApplicationListener接口，当一个ApplicationEvent 被发布以后，bean会自动被通知。
+
+### 解释一下Spring AOP里面的几个名词
+
+（1）切面（Aspect）：被抽取的公共模块，可能会横切多个对象。 在Spring AOP中，切面可以使用通用类（基于模式的风格） 或者在普通类中以 @AspectJ 注解来实现。
+
+（2）连接点（Join point）：指方法，在Spring AOP中，一个连接点 总是 代表一个方法的执行。 
+
+（3）通知（Advice）：在切面的某个特定的连接点（Join point）上执行的动作。通知有各种类型，其中包括“around”、“before”和“after”等通知。许多AOP框架，包括Spring，都是以拦截器做通知模型， 并维护一个以连接点为中心的拦截器链。
+
+（4）切入点（Pointcut）：切入点是指 我们要对哪些Join point进行拦截的定义。通过切入点表达式，指定拦截的方法，比如指定拦截add*、search*。
+
+（5）引入（Introduction）：（也被称为内部类型声明（inter-type declaration））。声明额外的方法或者某个类型的字段。Spring允许引入新的接口（以及一个对应的实现）到任何被代理的对象。例如，你可以使用一个引入来使bean实现 IsModified 接口，以便简化缓存机制。
+
+（6）目标对象（Target Object）： 被一个或者多个切面（aspect）所通知（advise）的对象。也有人把它叫做 被通知（adviced） 对象。 既然Spring AOP是通过运行时代理实现的，这个对象永远是一个 被代理（proxied） 对象。
+
+（7）织入（Weaving）：指把增强应用到目标对象来创建新的代理对象的过程。Spring是在运行时完成织入。
+
+切入点（pointcut）和连接点（join point）匹配的概念是AOP的关键，这使得AOP不同于其它仅仅提供拦截功能的旧技术。 切入点使得定位通知（advice）可独立于OO层次。 例如，一个提供声明式事务管理的around通知可以被应用到一组横跨多个对象中的方法上（例如服务层的所有业务操作）。
+
+![img](https://img-blog.csdn.net/20180708154818891?watermark/2/text/aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L2E3NDUyMzM3MDA=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70)
 
 **15、Spring通知有哪些类型？**
 
